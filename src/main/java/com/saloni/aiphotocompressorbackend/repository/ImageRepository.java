@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface ImageRepository extends JpaRepository<ImageEntity, Long> {
     List<ImageEntity> findByUserIdOrderByIdDesc(Long userId);
+    List<ImageEntity> findByUserId(Long userId);
 }

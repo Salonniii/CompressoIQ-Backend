@@ -123,7 +123,11 @@ public class DocumentService {
             case "WORD":
             case "PPT":
             case "EXCEL":
-                compressOfficeFileWithImageOptimization(inputFile, outputFile);
+                compressOfficeFileWithImageOptimization(
+                        inputFile,
+                        outputFile,
+                        targetSizeKB
+                );
                 break;
 
             default:
@@ -146,7 +150,23 @@ public class DocumentService {
 
         // ✅ QUALITY-FIRST presets only
         // Removed /screen because it destroys quality badly
-        String[] presets = {"/prepress", "/printer", "/ebook"};
+        String[] presets;
+
+        if (targetSizeKB <= 20) {
+
+            presets = new String[]{
+                    "/screen",
+                    "/ebook"
+            };
+
+        } else {
+
+            presets = new String[]{
+                    "/prepress",
+                    "/printer",
+                    "/ebook"
+            };
+        }
 
         File bestFile = null;
         long bestScore = Long.MAX_VALUE;
@@ -250,51 +270,113 @@ public class DocumentService {
     // ==========================================
     // DOCX / PPTX / XLSX compression
     // ==========================================
-    private void compressOfficeFileWithImageOptimization(File inputFile, File outputFile) throws Exception {
-        File tempZipFile = File.createTempFile("office_compressed_", ".tmp");
+    private void compressOfficeFileWithImageOptimization(
+            File inputFile,
+            File outputFile,
+            Long targetSizeKB
+    ) throws Exception {
+
+        File tempZipFile =
+                File.createTempFile(
+                        "office_compressed_",
+                        ".tmp"
+                );
 
         try (
-                ZipFile zipFile = new ZipFile(inputFile);
-                FileOutputStream fos = new FileOutputStream(tempZipFile);
-                BufferedOutputStream bos = new BufferedOutputStream(fos);
-                ZipOutputStream zos = new ZipOutputStream(bos)
+
+                ZipFile zipFile =
+                        new ZipFile(inputFile);
+
+                FileOutputStream fos =
+                        new FileOutputStream(tempZipFile);
+
+                BufferedOutputStream bos =
+                        new BufferedOutputStream(fos);
+
+                ZipOutputStream zos =
+                        new ZipOutputStream(bos)
+
         ) {
+
             zos.setLevel(Deflater.BEST_COMPRESSION);
 
-            Enumeration<? extends ZipEntry> entries = zipFile.entries();
+            Enumeration<? extends ZipEntry> entries =
+                    zipFile.entries();
+
             byte[] buffer = new byte[8192];
 
             while (entries.hasMoreElements()) {
-                ZipEntry entry = entries.nextElement();
-                String entryName = entry.getName();
 
-                if (entryName.startsWith("__MACOSX") || entryName.contains(".DS_Store")) {
+                ZipEntry entry =
+                        entries.nextElement();
+
+                String entryName =
+                        entry.getName();
+
+                // REMOVE JUNK FILES
+                if (entryName.startsWith("__MACOSX")
+                        || entryName.contains(".DS_Store")) {
+
                     continue;
                 }
 
-                ZipEntry newEntry = new ZipEntry(entryName);
+                ZipEntry newEntry =
+                        new ZipEntry(entryName);
+
                 newEntry.setTime(entry.getTime());
+
                 newEntry.setMethod(ZipEntry.DEFLATED);
+
                 zos.putNextEntry(newEntry);
 
-                try (InputStream is = zipFile.getInputStream(entry)) {
+                try (
+                        InputStream is =
+                                zipFile.getInputStream(entry)
+                ) {
+
+                    // =========================================
+                    // EMBEDDED IMAGE COMPRESSION
+                    // =========================================
 
                     if (isOfficeMediaImage(entryName)) {
-                        byte[] optimizedImage = tryCompressEmbeddedImage(is, entryName);
+
+                        byte[] optimizedImage =
+                                tryCompressEmbeddedImage(
+                                        is,
+                                        entryName,
+                                        targetSizeKB
+                                );
 
                         if (optimizedImage != null) {
+
                             zos.write(optimizedImage);
+
                         } else {
+
                             int len;
+
                             while ((len = is.read(buffer)) > 0) {
-                                zos.write(buffer, 0, len);
+
+                                zos.write(
+                                        buffer,
+                                        0,
+                                        len
+                                );
                             }
                         }
 
                     } else {
+
+                        // NORMAL FILES
                         int len;
+
                         while ((len = is.read(buffer)) > 0) {
-                            zos.write(buffer, 0, len);
+
+                            zos.write(
+                                    buffer,
+                                    0,
+                                    len
+                            );
                         }
                     }
                 }
@@ -303,19 +385,37 @@ public class DocumentService {
             }
 
         } catch (Exception e) {
+
             copyFile(inputFile, outputFile);
-            if (tempZipFile.exists()) tempZipFile.delete();
+
+            if (tempZipFile.exists()) {
+                tempZipFile.delete();
+            }
+
             return;
         }
 
-        if (tempZipFile.exists() && tempZipFile.length() < inputFile.length()) {
-            Files.move(tempZipFile.toPath(), outputFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        // =========================================
+        // FINAL SIZE CHECK
+        // =========================================
+
+        if (tempZipFile.exists()
+                && tempZipFile.length() > 0
+                && tempZipFile.length() < inputFile.length()) {
+
+            Files.move(
+                    tempZipFile.toPath(),
+                    outputFile.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING
+            );
+
         } else {
+
             copyFile(inputFile, outputFile);
+
             tempZipFile.delete();
         }
     }
-
     // ==========================================
     // CHECK OFFICE MEDIA IMAGE
     // ==========================================
@@ -334,58 +434,160 @@ public class DocumentService {
     // ==========================================
     // COMPRESS EMBEDDED IMAGE
     // ==========================================
-    private byte[] tryCompressEmbeddedImage(InputStream is, String fileName) {
-        try {
-            byte[] originalBytes = readAllBytes(is);
+    private byte[] tryCompressEmbeddedImage(
+            InputStream is,
+            String fileName,
+            Long targetSizeKB
+    ) {
 
-            if (originalBytes.length < 150 * 1024) {
+        try {
+
+            byte[] originalBytes =
+                    readAllBytes(is);
+
+            // Skip already small images
+            if (originalBytes.length < 150 * 1024
+                    && targetSizeKB > 20) {
+
                 return null;
             }
 
-            BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(originalBytes));
+            BufferedImage originalImage =
+                    ImageIO.read(
+                            new ByteArrayInputStream(originalBytes)
+                    );
+
             if (originalImage == null) {
                 return null;
             }
 
-            String lower = fileName.toLowerCase();
+            String lower =
+                    fileName.toLowerCase();
 
-            if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
-                return compressJpegBytes(originalImage, originalBytes.length);
+            // =========================================
+            // JPEG
+            // =========================================
+
+            if (lower.endsWith(".jpg")
+                    || lower.endsWith(".jpeg")) {
+
+                return compressJpegBytes(
+                        originalImage,
+                        originalBytes.length,
+                        targetSizeKB
+                );
             }
 
+            // =========================================
+            // PNG
+            // =========================================
+
             if (lower.endsWith(".png")) {
-                return compressPngBytes(originalImage, originalBytes.length);
+
+                return compressPngBytes(
+                        originalImage,
+                        originalBytes.length
+                );
             }
 
             return null;
 
         } catch (Exception e) {
+
             return null;
         }
     }
-
     // ==========================================
     // JPEG IMAGE COMPRESSION
     // ==========================================
-    private byte[] compressJpegBytes(BufferedImage image, int originalSize) throws Exception {
-        BufferedImage resized = resizeIfNeeded(image, 1800);
+    private byte[] compressJpegBytes(
+            BufferedImage image,
+            int originalSize,
+            Long targetSizeKB
+    ) throws Exception {
 
-        float[] qualities = {0.88f, 0.82f, 0.76f};
+        BufferedImage resized;
+
+        // =========================================
+        // ULTRA MODES
+        // =========================================
+
+        if (targetSizeKB <= 10) {
+
+            resized = resizeIfNeeded(image, 700);
+
+        } else if (targetSizeKB <= 20) {
+
+            resized = resizeIfNeeded(image, 1000);
+
+        } else if (targetSizeKB <= 50) {
+
+            resized = resizeIfNeeded(image, 1400);
+
+        } else {
+
+            resized = resizeIfNeeded(image, 1800);
+        }
+
+        // =========================================
+        // QUALITY LEVELS
+        // =========================================
+
+        float[] qualities;
+
+        if (targetSizeKB <= 10) {
+
+            qualities = new float[]{
+                    0.18f,
+                    0.14f,
+                    0.10f
+            };
+
+        } else if (targetSizeKB <= 20) {
+
+            qualities = new float[]{
+                    0.28f,
+                    0.24f,
+                    0.20f
+            };
+
+        } else if (targetSizeKB <= 50) {
+
+            qualities = new float[]{
+                    0.45f,
+                    0.38f,
+                    0.32f
+            };
+
+        } else {
+
+            qualities = new float[]{
+                    0.88f,
+                    0.82f,
+                    0.76f
+            };
+        }
 
         byte[] best = null;
 
         for (float q : qualities) {
-            byte[] compressed = writeJpegToBytes(resized, q);
+
+            byte[] compressed =
+                    writeJpegToBytes(resized, q);
+
+            if (best == null
+                    || compressed.length < best.length) {
+
+                best = compressed;
+            }
 
             if (compressed.length < originalSize) {
-                best = compressed;
                 break;
             }
         }
 
         return best;
     }
-
     // ==========================================
     // PNG IMAGE COMPRESSION
     // ==========================================
