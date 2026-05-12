@@ -87,7 +87,23 @@ public class ImageService {
 
         // FIX ROTATION
         inputImage = fixOrientation(originalFile, inputImage);
+        if (inputImage.getWidth() > 2500 || inputImage.getHeight() > 2500) {
 
+            int newWidth = inputImage.getWidth() / 2;
+            int newHeight = inputImage.getHeight() / 2;
+
+            BufferedImage reducedImage =
+                    resizeImage(
+                            inputImage,
+                            newWidth,
+                            newHeight,
+                            false
+                    );
+
+            inputImage.flush();
+
+            inputImage = reducedImage;
+        }
         BufferedImage workingImage;
 
         if (safeFormat.equals("png")) {
@@ -267,7 +283,7 @@ public class ImageService {
                     && targetSizeKB <= 20
                     && !isDocumentLike) {
 
-                resized = applySoftBlur(resized);
+               // resized = applySoftBlur(resized);
             }
 
             for (float quality : qualities) {
