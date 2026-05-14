@@ -77,13 +77,10 @@ public class DocumentService {
             smartDocumentCompression(tempInputFile, compressedPath.toFile(), fileType, targetSizeKB);
 
             // fallback if compressed is bad / missing / larger
-//            if (!compressedPath.toFile().exists()
-//                    || compressedPath.toFile().length() == 0
-//                    || compressedPath.toFile().length() >= tempInputFile.length()) {
-//                copyFile(tempInputFile, compressedPath.toFile());
-//            }
+
             if (!compressedPath.toFile().exists()
-                    || compressedPath.toFile().length() == 0) {
+                    || compressedPath.toFile().length() == 0
+                    || compressedPath.toFile().length() >= tempInputFile.length()) {
 
                 copyFile(tempInputFile, compressedPath.toFile());
             }
@@ -121,12 +118,20 @@ public class DocumentService {
     // ==========================================
     private void smartDocumentCompression(File inputFile, File outputFile, String fileType, Long targetSizeKB) throws Exception {
         switch (fileType) {
-          //  case "PDF":
-             //   compressPdfWithGhostscript(inputFile, outputFile, targetSizeKB);
-             //   break;
+           // case "PDF":
+//                compressPdfWithGhostscript(inputFile, outputFile, targetSizeKB);
+//                break;
+//
+//            case "PDF":
+//                copyFile(inputFile, outputFile);
+//                break;
 
             case "PDF":
-                copyFile(inputFile, outputFile);
+                compressPdfWithGhostscript(
+                        inputFile,
+                        outputFile,
+                        targetSizeKB
+                );
                 break;
 
             case "WORD":
