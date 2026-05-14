@@ -100,7 +100,7 @@ public class DocumentService {
 
             // If you added status column, keep this.
             // If not, remove this one line only.
-            entity.setStatus(determineDocumentStatus(originalSizeKB, compressedSizeKB, targetSizeKB));
+           // entity.setStatus(determineDocumentStatus(originalSizeKB, compressedSizeKB, targetSizeKB));
 
             return documentRepository.save(entity);
 
