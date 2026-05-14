@@ -77,9 +77,14 @@ public class DocumentService {
             smartDocumentCompression(tempInputFile, compressedPath.toFile(), fileType, targetSizeKB);
 
             // fallback if compressed is bad / missing / larger
+//            if (!compressedPath.toFile().exists()
+//                    || compressedPath.toFile().length() == 0
+//                    || compressedPath.toFile().length() >= tempInputFile.length()) {
+//                copyFile(tempInputFile, compressedPath.toFile());
+//            }
             if (!compressedPath.toFile().exists()
-                    || compressedPath.toFile().length() == 0
-                    || compressedPath.toFile().length() >= tempInputFile.length()) {
+                    || compressedPath.toFile().length() == 0) {
+
                 copyFile(tempInputFile, compressedPath.toFile());
             }
 
