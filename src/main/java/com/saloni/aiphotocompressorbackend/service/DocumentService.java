@@ -116,8 +116,12 @@ public class DocumentService {
     // ==========================================
     private void smartDocumentCompression(File inputFile, File outputFile, String fileType, Long targetSizeKB) throws Exception {
         switch (fileType) {
+          //  case "PDF":
+             //   compressPdfWithGhostscript(inputFile, outputFile, targetSizeKB);
+             //   break;
+
             case "PDF":
-                compressPdfWithGhostscript(inputFile, outputFile, targetSizeKB);
+                copyFile(inputFile, outputFile);
                 break;
 
             case "WORD":

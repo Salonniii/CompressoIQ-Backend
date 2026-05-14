@@ -111,7 +111,7 @@ public class ImageService {
         } else {
             workingImage = convertToRGB(inputImage);
         }
-
+        inputImage.flush();
         String compressedName =
                 UUID.randomUUID() + "_compressed." + safeFormat;
 
@@ -187,7 +187,7 @@ public class ImageService {
         } else {
             image.setScore("Optimized");
         }
-
+        workingImage.flush();
         return imageRepository.save(image);
     }
 
@@ -340,6 +340,7 @@ public class ImageService {
                     return;
                 }
             }
+            resized.flush();
         }
 
         if (bestFile != null && bestFile.exists()) {
@@ -389,15 +390,19 @@ public class ImageService {
 
             writer.setOutput(ios);
 
+            BufferedImage rgbImage = convertToRGB(image);
+
             writer.write(
                     null,
                     new IIOImage(
-                            convertToRGB(image),
+                            rgbImage,
                             null,
                             null
                     ),
                     param
             );
+
+            rgbImage.flush();
 
         } finally {
 
