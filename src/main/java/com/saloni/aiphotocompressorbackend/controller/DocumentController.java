@@ -38,11 +38,12 @@ public class DocumentController {
                     targetSizeKB,
                     userId
             );
-
+            System.out.println("DOCUMENT SAVED SUCCESSFULLY");
             return ResponseEntity.ok(savedDocument);
 
         } catch (Exception e) {
             e.printStackTrace();
+            System.out.println("DOCUMENT ERROR: " + e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                     "message", "Document compression failed",
                     "error", e.getMessage()
